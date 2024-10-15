@@ -3,6 +3,7 @@
 import { Devvit, TriggerContext, User, UserSocialLink } from "@devvit/public-api";
 import { isLinkId } from "@devvit/shared-types/tid.js";
 import { addDays, addHours } from "date-fns";
+import _ from "lodash";
 
 enum AppSetting {
     PostId = "postId",
@@ -117,7 +118,7 @@ Devvit.addTrigger({
             return;
         }
 
-        const userList = JSON.parse(event.comment.body) as string[];
+        const userList = _.uniq(JSON.parse(event.comment.body) as string[]);
         console.log(userList);
         const userSocialLinks: UserSocialLinks[] = [];
         for (const user of userList) {
