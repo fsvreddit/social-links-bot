@@ -2,7 +2,7 @@
 
 import { Devvit, TriggerContext, User, UserSocialLink } from "@devvit/public-api";
 import { isLinkId } from "@devvit/shared-types/tid.js";
-import { addDays, addHours } from "date-fns";
+import { addHours } from "date-fns";
 import _ from "lodash";
 
 enum AppSetting {
@@ -54,7 +54,7 @@ async function getSocialLinksForUser (username: string, context: TriggerContext)
 
 Devvit.addSchedulerJob({
     name: "cleanupJob",
-    onRun: async (event, context) => {
+    onRun: async (_, context) => {
         const commentsToDelete = (await context.redis.zRange(CLEANUP_KEY, 0, new Date().getTime(), { by: "score" })).map(x => x.member);
         if (commentsToDelete.length === 0) {
             return;
@@ -106,7 +106,6 @@ Devvit.addTrigger({
         }
 
         const accountNames = accountNamesVal.split(",").map(accountName => accountName.trim().toLowerCase());
-        console.log(accountNames);
 
         if (!accountNames.includes(event.author.name.toLowerCase())) {
             console.log(`Wrong user: Got ${event.author.name}`);
@@ -119,7 +118,6 @@ Devvit.addTrigger({
         }
 
         const userList = _.uniq(JSON.parse(event.comment.body) as string[]);
-        console.log(userList);
         const userSocialLinks: UserSocialLinks[] = [];
         for (const user of userList) {
             const userSocials = await getSocialLinksForUser(user, context);
@@ -137,13 +135,9 @@ Devvit.addTrigger({
             text: JSON.stringify(userSocialLinks),
         });
 
-        await addCleanup(event.comment.id, context);
+        console.log("Comment left.");
 
-        await context.scheduler.runJob({
-            name: "deleteCommentAfterOneDay",
-            runAt: addDays(new Date(), 1),
-            data: { commentId: event.comment.id },
-        });
+        await addCleanup(event.comment.id, context);
     },
 });
 
