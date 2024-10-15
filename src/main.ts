@@ -3,7 +3,7 @@
 import { Devvit, TriggerContext, User, UserSocialLink } from "@devvit/public-api";
 import { isLinkId } from "@devvit/shared-types/tid.js";
 import Ajv, { JSONSchemaType } from "ajv";
-import { addHours } from "date-fns";
+import { addHours, addMinutes } from "date-fns";
 
 enum AppSetting {
     PostId = "postId",
@@ -131,6 +131,12 @@ Devvit.addTrigger({
             return;
         }
 
+        const redisKey = `alreadyChecked~${event.comment.id}`;
+        const alreadyChecked = await context.redis.get(redisKey);
+        if (alreadyChecked) {
+            return;
+        }
+
         const userSocialLinks: UserSocialLinks[] = [];
 
         try {
@@ -170,6 +176,7 @@ Devvit.addTrigger({
         console.log("Comment left.");
 
         await addCleanup(event.comment.id, context);
+        await context.redis.set(redisKey, new Date().getTime().toString(), { expiration: addMinutes(new Date(), 20) });
     },
 });
 
