@@ -14,7 +14,7 @@ export async function runCleanup (_: unknown, context: JobContext) {
         await comment.delete();
     }
 
-    console.log(`Deleted ${commentsToDelete} comment(s) via cleanup job`);
+    console.log(`Deleted ${commentsToDelete.length} comment(s) via cleanup job`);
 
     await context.redis.zRem(CLEANUP_KEY, commentsToDelete);
 }
