@@ -115,14 +115,14 @@ export async function handleCommentCreate (event: CommentCreate, context: Trigge
     const [responseMethod] = settings[AppSetting.ResponseMethod] as [ResponseMethod] | undefined ?? [ResponseMethod.Reply];
 
     if (responseMethod === ResponseMethod.Reply) {
-        await context.reddit.submitComment({
+        const newComment = await context.reddit.submitComment({
             id: event.comment.id,
             text: JSON.stringify(userSocialLinks),
         });
 
         console.log("Comment left.");
 
-        await addCleanup(event.comment.id, context);
+        await addCleanup(newComment.id, context);
     } else {
         await context.reddit.sendPrivateMessage({
             subject: "social-links-bot response",
