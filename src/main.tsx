@@ -85,7 +85,7 @@ Devvit.addTrigger({
 Devvit.addTrigger({
     event: "CommentCreate",
     onEvent: async (event, context) => {
-        if (!event.comment || !event.author) {
+        if (!event.comment || !event.author || event.author.name === context.appName) {
             return;
         }
 
