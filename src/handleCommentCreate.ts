@@ -2,7 +2,7 @@ import { TriggerContext, User, UserSocialLink } from "@devvit/public-api";
 import { CommentCreate } from "@devvit/protos";
 import { isLinkId } from "@devvit/shared-types/tid.js";
 import Ajv, { JSONSchemaType } from "ajv";
-import { AppSetting } from "./settings.js";
+import { AppSetting, ResponseMethod } from "./settings.js";
 import { addCleanup } from "./cleanup.js";
 import { addMinutes } from "date-fns";
 
@@ -112,13 +112,24 @@ export async function handleCommentCreate (event: CommentCreate, context: Trigge
         });
     }
 
-    await context.reddit.submitComment({
-        id: event.comment.id,
-        text: JSON.stringify(userSocialLinks),
-    });
+    const [responseMethod] = settings[AppSetting.ResponseMethod] as [ResponseMethod] | undefined ?? [ResponseMethod.Reply];
 
-    console.log("Comment left.");
+    if (responseMethod === ResponseMethod.Reply) {
+        await context.reddit.submitComment({
+            id: event.comment.id,
+            text: JSON.stringify(userSocialLinks),
+        });
 
-    await addCleanup(event.comment.id, context);
+        console.log("Comment left.");
+
+        await addCleanup(event.comment.id, context);
+    } else {
+        await context.reddit.sendPrivateMessage({
+            subject: "social-links-bot response",
+            to: event.author.name,
+            text: JSON.stringify(userSocialLinks),
+        });
+    }
+
     await context.redis.set(redisKey, new Date().getTime().toString(), { expiration: addMinutes(new Date(), 20) });
 }
