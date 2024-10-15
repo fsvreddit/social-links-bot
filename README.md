@@ -1,6 +1,8 @@
 # social-links-bot
 
-A Devvit app that responds to user lists and returns their social links (if any).
+A Devvit app that responds to user lists and returns their social links (if any). It is intended to be a bridge to allow data API-based Reddit bots to be able to access social links despite them not being available via the API.
+
+**If you do not run a Data API bot that isn't specifically written to take advantage of this app, this is not for you. The app should not be installed on public subreddits.**.
 
 Object type returned is an array of the following type:
 
@@ -24,3 +26,5 @@ If the input is badly formed (e.g. not JSON, not a string array, containing entr
 Otherwise, an array of usernames with their social links (if any) is returned.
 
 Shadowbanned, suspended and deleted users cannot be retrieved, in which case their username and an error of "SHADOWBANNED" is returned.
+
+The app deletes its own comments within 2-4 hours of creation. My suggested implementation is to install on a private subreddit and watch the comment stream on the subreddit for comments from the app, or proactively check on replies to bot comments (it should take a few seconds at most to act).
