@@ -132,33 +132,33 @@ Devvit.addTrigger({
         }
 
         const userSocialLinks: UserSocialLinks[] = [];
-        let userList: string[] = [];
+
         try {
-            userList = JSON.parse(event.comment.body) as string[];
+            const userList = JSON.parse(event.comment.body) as string[];
+
+            const ajv = new Ajv.default();
+            const validate = ajv.compile(schema);
+
+            if (!validate(userList)) {
+                userSocialLinks.push({
+                    error: "JSON_INVALID_FORMAT",
+                    errorDetail: ajv.errorsText(validate.errors),
+                });
+            } else {
+                for (const user of userList) {
+                    userSocialLinks.push(await getSocialLinksForUser(user, context));
+                }
+            }
+
+            if (userSocialLinks.length === 0) {
+                userSocialLinks.push({
+                    error: "NO_USERS_PROVIDED",
+                });
+            }
         } catch (error) {
             userSocialLinks.push({
                 error: "INVALID_JSON",
-                errorDetail: error instanceof Error ? JSON.stringify(error.message) : undefined,
-            });
-        }
-
-        const ajv = new Ajv.default();
-        const validate = ajv.compile(schema);
-
-        if (!validate(userList)) {
-            userSocialLinks.push({
-                error: "JSON_INVALID_FORMAT",
-                errorDetail: ajv.errorsText(validate.errors),
-            });
-        } else {
-            for (const user of userList) {
-                userSocialLinks.push(await getSocialLinksForUser(user, context));
-            }
-        }
-
-        if (userSocialLinks.length === 0) {
-            userSocialLinks.push({
-                error: "NO_USERS_PROVIDED",
+                errorDetail: error instanceof Error ? error.message : undefined,
             });
         }
 
