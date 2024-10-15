@@ -2,8 +2,8 @@
 
 import { Devvit, TriggerContext, User, UserSocialLink } from "@devvit/public-api";
 import { isLinkId } from "@devvit/shared-types/tid.js";
+import Ajv, { JSONSchemaType } from "ajv";
 import { addHours } from "date-fns";
-import _ from "lodash";
 
 enum AppSetting {
     PostId = "postId",
@@ -29,11 +29,13 @@ Devvit.addSettings([
 const CLEANUP_KEY = "CommentCleanup";
 
 interface UserSocialLinks {
-    username: string;
-    socialLinks: UserSocialLink[];
+    username?: string;
+    error?: string;
+    errorDetail?: string;
+    socialLinks?: UserSocialLink[];
 }
 
-async function getSocialLinksForUser (username: string, context: TriggerContext): Promise<UserSocialLinks | undefined> {
+async function getSocialLinksForUser (username: string, context: TriggerContext): Promise<UserSocialLinks> {
     let user: User | undefined;
     try {
         user = await context.reddit.getUserByUsername(username);
@@ -41,7 +43,10 @@ async function getSocialLinksForUser (username: string, context: TriggerContext)
         //
     }
     if (!user) {
-        return;
+        return {
+            username,
+            error: "SHADOWBANNED",
+        };
     }
 
     const socialLinks = await user.getSocialLinks();
@@ -65,6 +70,8 @@ Devvit.addSchedulerJob({
             await comment.delete();
         }
 
+        console.log(`Deleted ${commentsToDelete} comment(s) via cleanup job`);
+
         await context.redis.zRem(CLEANUP_KEY, commentsToDelete);
     },
 });
@@ -82,6 +89,17 @@ Devvit.addTrigger({
     },
 });
 
+const schema: JSONSchemaType<string[]> = {
+    type: "array",
+    items: {
+        type: "string",
+        minLength: 3,
+        maxLength: 20,
+    },
+    minItems: 1,
+    uniqueItems: true,
+};
+
 Devvit.addTrigger({
     event: "CommentCreate",
     onEvent: async (event, context) => {
@@ -91,10 +109,6 @@ Devvit.addTrigger({
 
         if (!isLinkId(event.comment.parentId)) {
             console.log("Ignoring non-TLC");
-            return;
-        }
-
-        if (!event.comment.body.startsWith("[")) {
             return;
         }
 
@@ -117,17 +131,35 @@ Devvit.addTrigger({
             return;
         }
 
-        const userList = _.uniq(JSON.parse(event.comment.body) as string[]);
         const userSocialLinks: UserSocialLinks[] = [];
-        for (const user of userList) {
-            const userSocials = await getSocialLinksForUser(user, context);
-            if (userSocials) {
-                userSocialLinks.push(userSocials);
+        let userList: string[] = [];
+        try {
+            userList = JSON.parse(event.comment.body) as string[];
+        } catch (error) {
+            userSocialLinks.push({
+                error: "INVALID_JSON",
+                errorDetail: error instanceof Error ? JSON.stringify(error.message) : undefined,
+            });
+        }
+
+        const ajv = new Ajv.default();
+        const validate = ajv.compile(schema);
+
+        if (!validate(userList)) {
+            userSocialLinks.push({
+                error: "JSON_INVALID_FORMAT",
+                errorDetail: ajv.errorsText(validate.errors),
+            });
+        } else {
+            for (const user of userList) {
+                userSocialLinks.push(await getSocialLinksForUser(user, context));
             }
         }
 
         if (userSocialLinks.length === 0) {
-            return;
+            userSocialLinks.push({
+                error: "NO_USERS_PROVIDED",
+            });
         }
 
         await context.reddit.submitComment({
