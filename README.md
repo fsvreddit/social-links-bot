@@ -15,6 +15,8 @@ interface UserSocialLinks {
 
 Input is in the form of a JSON array of string e.g. `["user1", "user2"]`. Usernames are not case sensitive.
 
+The app will only respond to top level comments from named users on a specified post (configured in the app settings).
+
 If all is well, the error/errorDetail attributes are omitted.
 
 If the input is badly formed (e.g. not JSON, not a string array, containing entries that are impossible usernames (too short/long), or contains duplicate items), `error` and `errorDetail` attributes are returned in a single array item.
